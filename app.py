@@ -238,12 +238,12 @@ if query := st.chat_input():
             # response = "Sorry, I am not able to answer your question."
             # long polling
             response = None
-            while not response:
+            while response is None:
                 messages = CLIENT.get_messages()
-                if messages[-1]["role"] == "assistant":
+                if messages and messages[-1]["role"] == "assistant":
                     response = messages[-1]["content"]
                 time.sleep(1)  # idle to avoid overwhelming the server
-        if response:
+        if response is not None:
             # st.session_state.messages.append(
             #     {"role": "assistant", "content": response}
             # )
