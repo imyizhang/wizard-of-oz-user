@@ -33,9 +33,31 @@ class Client:
         response.raise_for_status()
         return response.json()["messages"]
 
-    def post_message(self, role: str, content: str):
+    def clear_messages(self):
+        """Clear all messages on the server."""
+        response = requests.delete(
+            urllib.parse.urljoin(self.base_url, "/api/messages"),
+            headers=self.headers,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def post_message(
+        self,
+        role: str,
+        content: str,
+        files: list | None = None,
+        reasoning: str | None = None,
+        feedback: str | None = None,
+    ):
         """Submit a new message to the server."""
-        payload = {"role": role, "content": content}
+        payload = {
+            "role": role,
+            "content": content,
+            "files": files,
+            "reasoning": reasoning,
+            "feedback": feedback,
+        }
         response = requests.post(
             urllib.parse.urljoin(self.base_url, "/api/messages"),
             json=payload,
@@ -44,10 +66,12 @@ class Client:
         response.raise_for_status()
         return response.json()
 
-    def clear_messages(self):
-        """Clear all messages from the server."""
-        response = requests.delete(
-            urllib.parse.urljoin(self.base_url, "/api/messages"),
+    def update_message(self, index: int, feedback: int):
+        """Update a message on the server."""
+        payload = {"feedback": feedback}
+        response = requests.put(
+            urllib.parse.urljoin(self.base_url, f"/api/messages/{index}"),
+            json=payload,
             headers=self.headers,
         )
         response.raise_for_status()

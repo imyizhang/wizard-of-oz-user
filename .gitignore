@@ -176,5 +176,9 @@ cython_debug/
 # macOS cache files
 .DS_Store
 
-# dotenv files
+# Jupiter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# dotenv file
 .env

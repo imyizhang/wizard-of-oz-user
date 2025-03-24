@@ -17,25 +17,58 @@ if not BASE_URL or not API_KEY:
     API_KEY = "API_KEY"
     print("WARNING: Using API key in development mode")
 
+# example curl command
 # print(f'curl {BASE_URL} -H "Authorization: Bearer {API_KEY}"')
 
 from client import Client
 
 CLIENT = Client(base_url=BASE_URL, api_key=API_KEY)
 
+ASSISTANT = "assistant"
+USER = "user"
+
 ROLE2AVATAR = {
-    "assistant": "🦖",
-    "user": "🧑‍💻",
+    ASSISTANT: "🦖",
+    USER: "🧑‍💻",
+}
+
+START = "<s>"
+END = "</s>"
+
+SYMBOL2CONTENT = {
+    START: "How can I help you today?",
+    END: "Thank you for choosing our service! Your feedback matters, please take a moment to rate your experience.",
 }
 
 
 def new_chat():
-    # st.session_state.messages = [
-    #     {"role": "assistant", "content": "How can I help you?"}
-    # ]
     CLIENT.clear_messages()
-    CLIENT.post_message(role="assistant", content="How can I help you?")
+    CLIENT.post_message(role=ASSISTANT, content=START)
 
+
+def chat_stream(response: str):
+    for char in response:
+        yield char
+        time.sleep(0.02)
+
+
+def save_feedback(index: int):
+    feedback = st.session_state[f"feedback_{index}"]
+    # update message on the server
+    print(f"INFO: Updating feedback of message #{index} to {feedback}")
+    CLIENT.update_message(index, feedback)
+
+
+# Page settings
+
+st.set_page_config(
+    page_title="Wizard of Oz",
+    page_icon="✨",
+    layout="centered",
+    initial_sidebar_state="auto",
+)
+
+# Sidebar elements
 
 with st.sidebar:
     st.sidebar.button(
@@ -54,16 +87,27 @@ with st.sidebar:
     #     help="[Get your OpenRouter API key](https://openrouter.ai)",
     # )
 
+    # TODO: Support loading default model
     model = st.selectbox(
         "Model",
         [
-            "deepseek-ai/deepseek-r1",
-            "deepseek-ai/deepseek-v3",
-            "google/gemini-2.0-pro-exp-02-05",
+            "deepseek/deepseek-r1",
             "google/gemini-2.0-flash-exp",
         ],
         index=0,
         help="Select a model for chat",
+    )
+
+    # TODO: Support loading default tools
+    tools = st.multiselect(
+        "Tools",
+        [
+            "Deep Research",
+            "Web Search",
+            "Computer Use",
+        ],
+        default=["Web Search"],
+        help="Select tools for the multi-agent system (MAS)",
     )
 
     # TODO: Support loading default model parameters
@@ -77,9 +121,6 @@ with st.sidebar:
         min_new_tokens = 0
         max_new_tokens = 1024
 
-    # TODO: Support loading default tools
-    tools = ["", ""]
-
     custom = st.toggle(
         "Custom mode",
         help="Enable Custom mode to customize the model parameters",
@@ -88,20 +129,6 @@ with st.sidebar:
 
     if custom:
         st.divider()
-
-        st.subheader("Tools")
-
-        tools = st.multiselect(
-            "Tools",
-            [
-                "",
-                "",
-                "",
-                "",
-            ],
-            default=tools,
-            help="Select tools used for the MRKL system",
-        )
 
         st.subheader("Model parameters")
 
@@ -178,49 +205,69 @@ st.caption("Powered by OpenRouter")
 # Info elements
 
 st.info(
-    "Welcome to our AI platform 🪄 ✨!",
+    "Welcome to our AI system! Meet your personal travel agent 🪄 ✨",
     icon="🧙‍♂️",
 )
 
-# col1, col2, col3 = st.columns(3)
-# with col1:
-#     st.info(
-#         "How could I update personal information in my account, especially about name change?",
-#         icon="💡",
-#     )
-
-# with col2:
-#     st.info(
-#         "What is the most commonly used language in recorded customer calls?",
-#         icon="💭",
-#     )
-
-# with col3:
-#     st.info(
-#         "Summarize customer needs or purposes of calling in recorded customer calls.",
-#         icon="📌",
-#     )
-
 # Chat elements
 
-# if "messages" not in st.session_state:
-#     st.session_state["messages"] = [
-#         {"role": "assistant", "content": "How can I help you?"}
-#     ]
-if not CLIENT.get_messages():
-    CLIENT.post_message(role="assistant", content="How can I help you?")
-
-# for message in st.session_state.messages:
-#     st.chat_message(message["role"], avatar=ROLE2AVATAR[message["role"]]).write(
-#         message["content"]
-#     )
 messages = CLIENT.get_messages()
-for message in messages:
-    st.chat_message(message["role"], avatar=ROLE2AVATAR[message["role"]]).write(
-        message["content"]
-    )
+if not messages:
+    CLIENT.post_message(role=ASSISTANT, content=START)
 
-if query := st.chat_input():
+messages = CLIENT.get_messages()
+for index, message in enumerate(messages):
+    role = message.get("role")
+    content = message.get("content")
+    with st.chat_message(role, avatar=ROLE2AVATAR[role]):
+        if role == ASSISTANT:
+            # write reasoning
+            reasoning = message.get("reasoning")
+            if reasoning is not None:
+                with st.status("Thoughts", state="complete") as status:
+                    st.write(reasoning)
+            # write content
+            if content == START:
+                st.write(SYMBOL2CONTENT[START])
+            elif content == END:
+                st.write(SYMBOL2CONTENT[END])
+            else:
+                st.write(content)
+            # write feedback
+            feedback = message.get("feedback")
+            st.session_state[f"feedback_{index}"] = feedback
+            if content == START:
+                pass
+            elif content == END:
+                st.feedback(
+                    "stars",
+                    key=f"feedback_{index}",
+                    disabled=feedback is not None,
+                    on_change=save_feedback,
+                    args=[index],
+                )
+            else:
+                st.feedback(
+                    "thumbs",
+                    key=f"feedback_{index}",
+                    disabled=feedback is not None,
+                    on_change=save_feedback,
+                    args=[index],
+                )
+        elif role == USER:
+            # write files
+            files = message.get("files")
+            if files:
+                with st.status("Files", state="complete") as status:
+                    for file in files:
+                        st.write(f"📄 {file}")
+            # write content
+            st.write(content)
+        else:
+            print(f"ERROR: Unexpected role '{role}'")
+
+
+if query := st.chat_input(accept_file=True):
     # if not api_key:
     #     st.warning(
     #         "Please enter your OpenRouter API key to continue",
@@ -228,23 +275,73 @@ if query := st.chat_input():
     #     )
     #     st.stop()
 
-    with st.chat_message("user", avatar=ROLE2AVATAR["user"]):
-        # st.session_state.messages.append({"role": "user", "content": query})
-        CLIENT.post_message(role="user", content=query)
-        st.write(query)
+    with st.chat_message(USER, avatar=ROLE2AVATAR[USER]):
+        # st.write(query)
 
-    with st.chat_message("assistant", avatar=ROLE2AVATAR["assistant"]):
-        with st.spinner("Reasoning ..."):
-            # response = "Sorry, I am not able to answer your question."
-            # long polling
+        # parse query
+        content = query.get("text")
+        files = query.get("files")
+        # write files
+        if files is not None:
+            files = [uploaded_file.name for uploaded_file in files]
+            if files:
+                with st.status("Files", state="complete") as status:
+                    for file in files:
+                        st.write(f"📄 {file}")
+        # write content
+        st.write(content)
+        # send message to the server
+        print(f"INFO: Sending message to the server\n'{query}'")
+        CLIENT.post_message(role=USER, content=content, files=files)
+
+    with st.chat_message(ASSISTANT, avatar=ROLE2AVATAR[ASSISTANT]):
+        with st.spinner("Thinking ..."):
+            # response = "..."
+
+            # communicate with the server using long polling
             response = None
             while response is None:
                 messages = CLIENT.get_messages()
-                if messages and messages[-1]["role"] == "assistant":
-                    response = messages[-1]["content"]
+                if messages and messages[-1]["role"] == ASSISTANT:
+                    response = messages[-1]
+                    index = len(messages) - 1
                 time.sleep(1)  # idle to avoid overwhelming the server
+
         if response is not None:
-            # st.session_state.messages.append(
-            #     {"role": "assistant", "content": response}
-            # )
-            st.write(response)
+            # st.write_stream(chat_stream(response))
+
+            content = response.get("content")
+            # write reasoning
+            reasoning = response.get("reasoning")
+            if reasoning is not None:
+                with st.status("Thinking ...", expanded=True) as status:
+                    st.write_stream(chat_stream(reasoning))
+                    status.update(
+                        label="Thoughts", state="complete", expanded=False
+                    )
+            # write content
+            if content == START:
+                print("ERROR: Unexpected content")
+            elif content == END:
+                st.write_stream(chat_stream(SYMBOL2CONTENT[content]))
+            else:
+                st.write_stream(chat_stream(content))
+            # write feedback
+            feedback = response.get("feedback")
+            print(f"INFO: Adding feedback widget for message #{index}")
+            if content == START:
+                print("ERROR: Unexpected content")
+            elif content == END:
+                st.feedback(
+                    "stars",
+                    key=f"feedback_{index}",
+                    on_change=save_feedback,
+                    args=[index],
+                )
+            else:
+                st.feedback(
+                    "thumbs",
+                    key=f"feedback_{index}",
+                    on_change=save_feedback,
+                    args=[index],
+                )
