@@ -291,7 +291,7 @@ if query := st.chat_input(accept_file=True):
         # write content
         st.write(content)
         # send message to the server
-        print(f"INFO: Sending message to the server\n'{query}'")
+        print(f'INFO: Sending message to the server\n"{query}"')
         CLIENT.post_message(role=USER, content=content, files=files)
 
     with st.chat_message(ASSISTANT, avatar=ROLE2AVATAR[ASSISTANT]):
