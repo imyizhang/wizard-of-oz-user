@@ -328,7 +328,7 @@ if query := st.chat_input(accept_file=True):
             elif content.endswith(END):
                 if content[: -len(END)]:
                     st.write_stream(chat_stream(content[: -len(END)]))
-                st.write_stream(chat_stream(SYMBOL2CONTENT[content]))
+                st.write_stream(chat_stream(SYMBOL2CONTENT[END]))
             else:
                 st.write_stream(chat_stream(content))
             # write feedback
