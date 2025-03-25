@@ -49,7 +49,7 @@ def new_chat():
 def chat_stream(response: str):
     for char in response:
         yield char
-        time.sleep(0.02)
+        time.sleep(0.005)
 
 
 def save_feedback(index: int):
@@ -104,6 +104,7 @@ with st.sidebar:
         [
             "Deep Research",
             "Web Search",
+            "File Search",
             "Computer Use",
         ],
         default=["Web Search"],
@@ -229,7 +230,9 @@ for index, message in enumerate(messages):
             # write content
             if content == START:
                 st.write(SYMBOL2CONTENT[START])
-            elif content == END:
+            elif content.endswith(END):
+                if content[: -len(END)]:
+                    st.write(content[: -len(END)])
                 st.write(SYMBOL2CONTENT[END])
             else:
                 st.write(content)
@@ -238,7 +241,7 @@ for index, message in enumerate(messages):
             st.session_state[f"feedback_{index}"] = feedback
             if content == START:
                 pass
-            elif content == END:
+            elif content.endswith(END):
                 st.feedback(
                     "stars",
                     key=f"feedback_{index}",
@@ -322,7 +325,9 @@ if query := st.chat_input(accept_file=True):
             # write content
             if content == START:
                 print("ERROR: Unexpected content")
-            elif content == END:
+            elif content.endswith(END):
+                if content[: -len(END)]:
+                    st.write_stream(chat_stream(content[: -len(END)]))
                 st.write_stream(chat_stream(SYMBOL2CONTENT[content]))
             else:
                 st.write_stream(chat_stream(content))
@@ -331,7 +336,7 @@ if query := st.chat_input(accept_file=True):
             print(f"INFO: Adding feedback widget for message #{index}")
             if content == START:
                 print("ERROR: Unexpected content")
-            elif content == END:
+            elif content.endswith(END):
                 st.feedback(
                     "stars",
                     key=f"feedback_{index}",

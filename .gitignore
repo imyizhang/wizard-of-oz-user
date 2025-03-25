@@ -77,6 +77,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # IPython
 profile_default/
@@ -175,10 +176,6 @@ cython_debug/
 
 # macOS cache files
 .DS_Store
-
-# Jupiter notebooks
-.ipynb_checkpoints/
-*.ipynb
 
 # dotenv file
 .env
